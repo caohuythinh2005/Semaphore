@@ -1,0 +1,16 @@
+\section{Giới thiệu}
+Trong bối cảnh khoa học máy tính và công nghệ thông tin ngày càng phát triển mạnh mẽ, vấn đề quản lý truy cập đồng thời đến các tài nguyên dùng chung giữa các tiến trình đang đóng vai trò then chốt trong việc bảo đảm hiệu quả và độ tin cậy của hệ thống. Đây là một trong những thách thức trọng yếu trong lĩnh vực hệ điều hành, nơi mà các tiến trình phải phối hợp hoạt động một cách hợp lý để tránh xung đột, điều kiện cạnh tranh (race conditions) hoặc hiện tượng bế tắc (deadlock).
+
+Một trong những cơ chế đồng bộ hóa cổ điển và có ảnh hưởng sâu rộng nhất trong lĩnh vực này là semaphore (hay còn gọi là đèn báo), được giới thiệu bởi nhà khoa học máy tính \textbf{Edsger Wybe Dijkstra}. Semaphore cho phép kiểm soát truy cập đến tài nguyên dùng chung thông qua các thao tác nguyên tử, từ đó giúp bảo đảm rằng chỉ một số lượng hữu hạn tiến trình có thể truy cập tài nguyên tại một thời điểm nhất định. Nhờ vào tính chất đơn giản trong cài đặt, hiệu quả trong vận hành và khả năng mở rộng cho nhiều tình huống thực tiễn, semaphore đã trở thành công cụ nền tảng trong việc thiết kế các giải thuật đồng bộ hóa trong lập trình hệ thống.
+
+Việc tìm hiểu chi tiết cách hoạt động của semaphore giúp nâng cao hiểu biết
+về lập trình hệ thống, đặc biệt là lập trình đa tiến trình và xử lý đồng thời.
+
+\subsection{Mục tiêu nghiên cứu}
+Mục tiêu của đề tài là:
+\begin{itemize}
+    \item Tìm hiểu lý thuyết và cấu trúc hoạt động của semaphore.
+    \item Phân tích và mô phỏng hai thao tác cơ bản là \texttt{wait()} và \texttt{signal()}.
+    \item Làm rõ vai trò của semaphore trong việc đồng bộ hoá tiến trình.
+    \item Xây dựng ví dụ minh họa hoặc cài đặt thử nghiệm để kiểm chứng tính đúng đắn của cơ chế.
+\end{itemize}

@@ -1,0 +1,921 @@
+\section{Các bài toán điều độ}
+\subsection{Bài toán bộ tộc ăn tối (The Dining Savages Problem)}
+
+\subsubsection*{1. Mô tả bài toán}
+Đây là một bài toán kinh điển tương tự như bài toán "Triết gia ăn tối", nhưng tập trung vào vấn đề quản lý tài nguyên dùng chung (nồi thức ăn) giữa nhiều tiến trình (các thành viên bộ tộc). Ta có ngữ cảnh bài toán như sau:
+\begin{itemize}
+   \item Một bộ tộc hoang dã ăn chung từ một nồi lớn chứa món thịt hầm thầy tu.
+    \item Nồi có thể chứa tối đa M suất ăn.
+    \item Có nhiều người (savage) trong bộ tộc. Mỗi người ăn khi họ đói:
+     \begin{itemize}
+        \item  Nếu nồi còn thức ăn, họ tự lấy một suất ăn và ăn.
+        \item Nếu nồi trống, người đó sẽ đánh thức người đầu bếp, rồi chờ cho đến khi đầu bếp nấu xong và làm đầy nồi trở lại.
+    \end{itemize}
+    \item Đầu bếp chỉ được đánh thức khi nồi rỗng, và khi đó sẽ nấu lại M suất mới cho vào nồi.
+\end{itemize}
+
+  Yêu cầu ràng buộc:
+\begin{itemize}
+    \item Đồng bộ hóa hợp lý giữa nhiều savage (người ăn) và cook (đầu bếp).
+    \item Không được để nhiều savage cùng lúc đánh thức đầu bếp khi nồi trống.
+
+    \item Đảm bảo an toàn dữ liệu, không để hai savage cùng lấy suất ăn cuối cùng một cách không hợp lệ.
+
+    \item Đầu bếp chỉ được đánh thức khi cần thiết, không bị đánh thức thừa.
+\end{itemize}
+\subsubsection*{2. Các biến sử dụng}
+\begin{itemize}
+    \item \textbf{servings}: Số suất ăn còn lại trong nồi.
+    \item \textbf{mutex}:Semaphore nhị phân (hoặc mutex) dùng để đảm bảo rằng chỉ một savage được truy cập và cập nhật biến servings tại một thời điểm.
+    \item \textbf{emptyPot}: Semaphore dùng cho savage đánh thức đầu bếp khi nồi trống.
+    \item \textbf{fullPot}: Semaphore dùng cho đầu bếp báo cho các savage biết nồi đã đầy sau khi nấu xong.
+\end{itemize}
+
+Ngoài ra còn có các hàm:
+\begin{itemize}
+    \item  \texttt{getServingFromPot()}: Lấy khẩu phần ăn ra (Savages không thể gọi getServingFromPot nếu nồi trống).
+    \item  \texttt{putServingsInPot(M)}: Đẩy khẩu phần ăn vào (Đầu bếp chỉ có thể gọi putServingsInPot nếu nồi trống).
+    \item  \texttt{eat()}: thực hiện ăn.
+\end{itemize}
+
+\subsubsection*{3. Thuật toán cho đầu bếp}
+\begin{lstlisting}
+ while (True){
+     emptyPot.wait();
+     putServingsInPot(M);
+     fullPot.signal();
+ }
+\end{lstlisting}
+
+\subsubsection*{4. Thuật toán cho savages}
+\begin{lstlisting}
+while (True){
+    mutex.wait();
+        if (servings == 0){
+            emptyPot.signal();
+            fullPot.wait();
+            servings = M;
+        }
+        servings-= 1;
+        getServingFromPot();
+    mutex.signal();
+    eat()
+}
+\end{lstlisting}
+
+\subsubsection*{5. Giải thích hoạt động}
+\begin{itemize}
+    \item  Đầu bếp chờ đợi cho đến khi nồi trống thì \texttt{putServingsInPot(M)}. Sau khi thêm thì đánh thức \texttt{fullPot.signal()}.
+    \item Mỗi khi savages qua được mutex, anh ta sẽ kiểm tra nồi. Nếu trống thì ra hiệu cho đầu bếp và đợi. Nếu không thì giảm khẩu phần ăn trong nồi.
+\end{itemize}
+\newpage
+\subsection{Bài toán về tiệm cắt tóc (The Barbershop Problem)}
+\subsubsection*{1. Mô tả bài toán}
+\begin{itemize}
+    \item Một thợ cắt tóc làm việc trong một tiệm có ghế cắt tóc và một số lượng ghế chờ có giới hạn (n ghế).
+    \item  Nếu không có khách, thợ cắt tóc ngủ.
+    \item Khi khách đến:
+    \begin{itemize}
+        \item Nếu còn ghế chờ trống, khách sẽ ngồi đợi đến lượt mình.
+        \item Nếu không còn chỗ ngồi, khách bỏ đi.
+    \end{itemize}
+    \item Khi thợ cắt tóc xong cho một khách, anh ta sẽ gọi khách tiếp theo từ hàng đợi (nếu có).
+\end{itemize}
+
+    Yêu cầu của bài toán:
+\begin{itemize}
+    \item Quản lý đồng thời giữa:
+    \begin{itemize}
+        \item Một thợ cắt tóc (barber).
+        \item Nhiều khách hàng (customer threads).
+        \item Số lượng ghế chờ có giới hạn.
+    \end{itemize}
+    \item Đồng bộ việc:
+    \begin{itemize}
+        \item Khách chờ đến lượt, mỗi khách hàng gọi \texttt{getHairCut()}.
+        \item Thợ cắt tóc chỉ cắt khi có khách, thợ cắt tóc gọi \texttt{cutHair()}.
+        \item Nếu tiệm đầy, khách gọi \texttt{balk()} và rời đi ngay lập tức.
+        \item Tại mọi thời điểm, khi \texttt{cutHair()} đang chạy thì chỉ đúng 1 khách hàng đang thực thi \texttt{getHairCut()}.
+    \end{itemize}
+\end{itemize}
+\subsubsection*{2. Các biến sử dụng}
+\begin{itemize}
+    \item \textbf{mutex}: Semaphore nhị phân bảo vệ biến waiting.
+    \item \textbf{customer}: Semaphore báo hiệu cho barber khi có khách.
+    \item \textbf{customers}: Số lượng khách hàng trong cửa hàng, được bảo vệ bởi \textbf{mutex}.
+    \item \textbf{customerDone}: Semaphore nhị phân thông báo khách đã cắt xong.
+    \item  \textbf{barberDone} : Semaphore nhị phân thông báo thợ cắt tóc cắt xong
+\end{itemize}
+\subsubsection*{3. Thuật toán cho khách hàng}
+\begin{lstlisting}
+mutex.wait();
+    if (customers == n){
+        mutex.signal();
+        balk();
+    }
+    customers += 1;
+ mutex.signal();
+ 
+ customer.signal();
+ barber.wait();
+ 
+ getHairCut();
+ 
+ customerDone.signal();
+ barberDone.wait();
+ 
+ mutex.wait()
+    customers-= 1;
+ mutex.signal();
+\end{lstlisting}
+\subsubsection*{4. Thuật toán cho thợ cắt tóc}
+\begin{lstlisting}
+customer.wait();
+barber.signal();
+cutHair();
+customerDone.wait();
+barberDone.signal();
+\end{lstlisting}
+\subsubsection*{5. Giải thích hoạt động}
+\begin{itemize}
+    \item Khi khách hàng vào kiểm tra số lượng ghế.
+    \begin{itemize}
+        \item Nếu mà số lượng khách hàng là n thì rời đi ngay lập tức.
+        \item  Nếu không thì tăng biến \textbf{customers} lên 1.
+    \end{itemize}
+    \item Sau khi kiểm tra, nếu thỏa mãn điều kiện, báo với thợ cắt tóc rằng có khách đang chờ (\texttt{customer.signal()}) và chờ thợ cắt tóc gọi mình vào ghế cắt bằng \texttt{barber.wait()}.
+    \item Nếu một khách hàng khác đến trong khi thợ cắt tóc đang bận, thì trong lần lặp lại tiếp theo, thợ cắt tóc sẽ không ngủ mà phục vụ tiếp.
+    \item Sau khi kết thúc cắt thì đồng bộ bằng các semaphore \textbf{customerDone} và \textbf{barberDone} (đảm bảo rằng việc cắt tóc được thực hiện trước khi thợ cắt tóc lặp lại để cho khách hàng tiếp theo vào  critical section). Khi ấy mới giảm số lượng khách đi 1 đơn vị.
+\end{itemize}
+\subsubsection*{6. Mở rộng bài toán: FIFO thợ cắt tóc (The FIFO Barbershop Problem)}
+% \subsubsection*{1.Mô tả bài toán}
+\begin{itemize}
+    \item Các yêu cầu giống như bài toán thợ cắt tóc ở trên.
+    \item Ngoài ra, bài toán này còn thêm yêu cầu là khách hàng phải được phục vụ theo đúng thứ tự họ đến (FIFO – First In First Out).
+\end{itemize}
+\subsubsection*{6.1. Các biến sử dụng}
+\begin{itemize}
+    \item Ngoài các biến được sử dụng trong bài toán trên, ta thêm hàng đơi \textbf{queue} và bỏ đi biến \textbf{barber}. Ngoài ra ta sẽ khởi tạo riêng từng semaphore cho từng khách hàng.
+\end{itemize}
+\subsubsection*{6.2. Thuật toán cho khách hàng}
+\begin{lstlisting}
+sem_t* mySem = new sem_t;
+sem_init(mySem, 0, 0);
+mutex.wait();
+ if (customers == n){
+    mutex.signal();
+    balk();
+ }
+    customers += 1;
+    queue.push(mySem);
+ mutex.signal();
+ 
+ customer.signal();
+ mySem.wait();
+ 
+ getHairCut();
+ 
+ customerDone.signal();
+ barberDone.wait();
+ 
+ mutex.wait();
+    customers-= 1;
+ mutex.signal();
+\end{lstlisting}
+\newpage
+\subsubsection*{6.3. Thuật toán cho thợ cắt tóc}
+\begin{lstlisting}
+customer.wait();
+mutex.wait();
+    sem = queue.pop();
+mutex.signal();
+
+sem.signal();
+
+cutHair();
+
+customerDone.wait();
+barberDone.signal();
+\end{lstlisting}
+\subsubsection*{6.4. Giải thích thuật toán}
+\begin{itemize}
+    \item Tương tự như thuật toán phần trên, nhưng ta thêm queue là hàng đợi FIFO chứa semaphore riêng của từng khách. Khi khách đến thì xếp semaphore của khách này vào hàng đợi bằng câu lệnh \texttt{queue.push(mySem)}.
+    \item Khi thợ cắt tóc thực hiện thì lấy ra theo lần lượt khách hàng đã vào hàng đợi bằng câu lệnh \texttt{sem = queue.pop()} và \texttt{sem.signal()}.
+\end{itemize}
+\newpage
+\subsection{Bài toán vấn đề tiệm cắt tóc của Hilzer (Hilzer’s Barbershop problem)}
+\subsubsection*{1. Mô tả bài toán}
+\begin{itemize}
+    \item Một tiệm cắt tóc có:
+    \begin{itemize}
+        \item 3 thợ cắt tóc và 3 ghế cắt tóc.
+        \item 1 quầy thu ngân (chỉ phục vụ từng người).
+        \item 1 ghế sofa 4 chỗ cho khách chờ. Nếu sofa đầy thì khách sẽ đứng đợi.
+        \item Tối đa 20 khách được phép trong tiệm (do quy định an toàn cháy nổ).
+    \end{itemize}
+    \item Hành vi của khách hàng. Khách thực hiện lần lượt gọi:
+    \begin{itemize}
+        \item \texttt{enterShop}: Vào tiệm nếu chưa đủ 20 người.
+        \item \texttt{sitOnSofa}: Ngồi vào sofa nếu còn chỗ.
+        \item \texttt{getHairCut}: Được cắt tóc nếu có thợ trống.
+        \item \texttt{pay}: Trả tiền tại quầy thu ngân.
+    \end{itemize}
+    \item Hành vi của thợ cắt tóc. Thợ thực hiện vòng lặp:
+    \begin{itemize}
+        \item \texttt{cutHair}: Cắt tóc cho khách nếu có người chờ.
+        \item \texttt{acceptPayment}: Nhận tiền từ khách (theo thứ tự).
+    \item Khách hàng không thể gọi \texttt{enterShop} nếu cửa hàng hết công suất.
+    \item Nếu ghế sofa đầy, khách hàng đến không thể gọi \texttt{sitOnSofa}.
+    \item Khi khách hàng gọi \texttt{getHairCut} sẽ có một thợ cắt tóc tương ứng thực hiện \texttt{cutHair} đồng thời và ngược lại
+    \item Có thể có tối đa ba khách hàng thực hiện \texttt{getHairCut} đồng thời và tối đa ba thợ cắt tóc thực hiện \texttt{cutHair} đồng thời.
+    \item Khách hàng phải \texttt{pay} trước khi thợ cắt tóc có thể \texttt{acceptPayment}.
+    \item Thợ cắt tóc phải \texttt{acceptPayment} trước khi khách hàng có thể thoát.
+    \end{itemize}
+\end{itemize}
+\subsubsection*{2. Các biến sử dụng}
+\begin{itemize}
+    \item \textbf{n = 20}: số lượng khách tối đa trong quán
+    \item \textbf{customers}: Biến đếm số khách hiện đang có trong tiệm.
+    \item \textbf{mutex}: Bảo vệ biến customers và hàng đợi queue1.
+    \item \textbf{sofa}: Biến biểu thị chỉ cho phép tối đa 4 khách ngồi sofa.
+    \item \textbf{customer1}: Semaphore báo hiệu có khách đang đợi lên sofa.
+    \item  \textbf{customer2}: Semaphore báo hiệu có khách đang đợi được cắt tóc (trên ghế cắt tóc).
+    \item \textbf{barber}: Semaphore báo hiệu có thợ cắt tóc sẵn sàng cắt tóc cho khách.
+    \item \textbf{payment}: Semaphore để chỉ khách dùng để báo đã trả tiền.
+    \item \textbf{receipt}: Semaphore báo hiệu thợ cắt tóc đã nhận tiền hay chưa.
+    \item \textbf{queue1}: Hàng đợi FIFO gồm các semaphore của khách đang chờ ngồi lên sofa.
+    \item \textbf{queue2}: Hàng đợi FIFO gồm các semaphore của khách đang chờ được cắt tóc.
+    \item \textbf{mutex2}: Semaphore bảo vệ \textbf{queue2}.
+\end{itemize}
+\subsubsection*{3. Thuật toán cho khách hàng}
+\begin{lstlisting}
+sem_init(sem1, 0, 0), sem_init(sem2, 0, 0);  
+mutex.wait();
+    if (customers == n){
+        mutex.signal();
+        balk();
+    }
+    customers += 1;
+    queue1.push(sem1);
+mutex.signal();
+
+enterShop();
+customer1.signal();
+sem1.wait();    
+
+sofa.wait();
+    sitOnSofa();
+    sem1.signal();
+    mutex.wait();
+        queue2.push(sem2);
+    mutex.signal();
+    customer2.signal();
+    sem2.wait();
+sofa.signal();
+ 
+sitInBarberChair();
+
+pay();
+payment.signal();
+receipt.wait();
+
+mutex.wait();
+    customers-= 1;
+mutex.signal();
+\end{lstlisting}
+\subsubsection*{4. Thuật toán cho thợ cắt tóc}
+\begin{lstlisting}
+customer1.wait();
+mutex.wait();
+    sem = queue1.pop();
+    sem.signal();
+    sem.wait();
+mutex.signal();
+sem.signal();
+
+customer2.wait();
+mutex.wait();
+    sem = queue2.pop(0);
+mutex.signal();
+sem.signal();
+
+barber.signal();
+cutHair();
+payment.wait();
+acceptPayment();
+ receipt.signal();
+\end{lstlisting}
+\subsubsection*{5. Giải thích thuật toán}
+\begin{itemize}
+    \item Thuật toán đối với khách hàng theo một thứ tự như sau: Đợi vào tiệm nếu chưa đủ 20 người $\longrightarrow$ Đợi lên sofa theo thứ tự đến $\longrightarrow$ Đợi lên ghế cắt tóc khi có barber rảnh $\longrightarrow$ Thanh toán và chờ xác nhận $\longrightarrow$ Rời khỏi tiệm.
+    \item Khi khách hàng thoát khỏi hàng đợi, nó sẽ đi vào multiplex, ngồi trên ghế dài và thêm chính nó vào hàng đợi thứ hai.
+    \item Đối với mỗi thợ cắt tóc đợi một khách hàng vào, ra hiệu cho semaphore của khách hàng để đưa nó ra khỏi hàng đợi, sau đó đợi họ yêu cầu một chỗ ngồi trên ghế sofa. Điều này thực thi yêu cầu FIFO.
+    \item Mỗi thợ cắt tóc nhận một khách hàng vào ghế, vì vậy có thể cắt tóc đồng thời ba lần. Vì chỉ có một máy tính tiền, khách hàng phải lấy \textbf{mutex}. Khách hàng và thợ cắt tóc gặp nhau tại quầy thu ngân, sau đó cả hai đều thoát ra.
+
+\newpage
+\end{itemize}
+\subsection{Bài toán Ông già Noel (Santa Claus Problem)}
+\subsubsection*{1. Mô tả bài toán}
+Ông già Noel chỉ thức dậy khi:
+\begin{itemize}
+  \item Cả 9 con tuần lộc đã quay về từ kỳ nghỉ.
+  \item Hoặc 3 yêu tinh cùng lúc gặp sự cố trong việc làm đồ chơi.
+\end{itemize}
+
+Yêu cầu đồng bộ:
+
+\begin{itemize}
+  \item Khi 9 tuần lộc đều có mặt, ông Noel sẽ gọi \texttt{prepareSleigh()}, sau đó 9 tuần lộc sẽ gọi \texttt{getHitched()}.
+  \item Khi 3 yêu tinh gặp sự cố, ông Noel sẽ gọi \texttt{helpElves()}, và cả 3 yêu tinh sẽ gọi \texttt{getHelp()} đồng thời.
+  \item Các yêu tinh khác phải chờ đến khi nhóm 3 yêu tinh trước được giúp xong mới được vào.
+  \item Nếu cả 9 tuần lộc và 3 yêu tinh cùng lúc chờ, ông Noel ưu tiên xử lý tuần lộc.
+\end{itemize}
+
+\subsubsection*{2. Các biến sử dụng}
+
+\begin{itemize}
+  \item \textbf{elves, reindeer}: Biến đếm số yêu tinh và tuần lộc đang chờ.
+  \item \textbf{santaSem}: Semaphore để đánh thức ông Noel.
+  \item \textbf{reindeerSem}: Semaphore cho các tuần lộc chờ đến khi được gọi để kéo xe.
+  \item \textbf{elfTex}: Semaphore nhị phân để chặn yêu tinh thứ 4 trở đi trong khi 3 yêu tinh đang được giúp.
+  \item \textbf{mutex}: Semaphore nhị phân để bảo vệ các biến đếm khi truy cập đồng thời.
+\end{itemize}
+
+\subsubsection*{3. Thuật toán cho Ông già Noel}
+
+\begin{lstlisting}
+santaSem.wait();
+mutex.wait();
+if (reindeer == 9) {
+    prepareSleigh();
+    reindeerSem.signal(9);
+    reindeer -= 9;
+} else if (elves == 3) {
+    helpElves();
+}
+mutex.signal();
+\end{lstlisting}
+
+
+
+
+\subsubsection*{4. Thuật toán cho tuần lộc}
+
+\begin{lstlisting}
+mutex.wait();
+reindeer += 1;
+if (reindeer == 9) {
+    santaSem.signal();
+}
+mutex.signal();
+
+reindeerSem.wait();
+getHitched();
+\end{lstlisting}
+
+
+\subsubsection*{5. Thuật toán cho yêu tinh}
+
+\begin{lstlisting}
+elfTex.wait();
+mutex.wait();
+elves += 1;
+if (elves == 3) {
+    santaSem.signal();
+} else {
+    elfTex.signal();
+}
+mutex.signal();
+
+getHelp();
+
+mutex.wait();
+elves -= 1;
+if (elves == 0) {
+    elfTex.signal();
+}
+mutex.signal();
+\end{lstlisting}
+
+\subsubsection*{6. Giải thích hoạt động}
+
+\begin{itemize}
+  \item Tuần lộc: Khi tuần lộc cuối cùng (thứ 9) đến, nó đánh thức ông Noel. Sau đó, cả 9 tuần lộc chờ ông gọi để được kéo xe.
+  \item Yêu tinh: Chỉ 3 yêu tinh được phép vào gặp ông Noel cùng lúc. Những yêu tinh khác bị chặn bởi \texttt{elfTex}.
+  \item Ông Noel: Chạy trong vòng lặp vô hạn, chỉ thức dậy khi được đánh thức bởi đủ 9 tuần lộc hoặc 3 yêu tinh. Nếu cả hai cùng đến, ông ưu tiên tuần lộc.
+  \item Sau khi 3 yêu tinh được giúp xong, yêu tinh cuối cùng sẽ giải phóng \texttt{elfTex} để nhóm tiếp theo có thể vào.
+\end{itemize}
+
+\newpage
+
+\subsection{Xây dựng phân tử H\texorpdfstring{\textsubscript{2}}{2}O  (Building H\texorpdfstring{\textsubscript{2}}{2}O)}
+
+\subsubsection*{1. Mô tả bài toán}
+
+Bài toán yêu cầu đồng bộ các luồng \textbf{oxy} và \textbf{hydro} để tạo thành phân tử nước (H\textsubscript{2}O). Mỗi phân tử nước cần đúng \textbf{2 hydro} và \textbf{1 oxy}. Các luồng chỉ được tiếp tục khi đủ bộ ba này cùng nhau gọi hàm \texttt{bond()}.
+
+\begin{itemize}
+  \item Nếu một luồng \textbf{oxy} đến mà chưa có đủ hai \textbf{hydro} đang chờ, nó phải đợi.
+  \item Nếu một luồng \textbf{hydro} đến mà chưa có một \textbf{oxy} và một \textbf{hydro} khác, nó cũng phải đợi.
+  \item Không cần xác định chính xác ba luồng nào ghép với nhau, chỉ cần đảm bảo các luồng được xử lý theo nhóm đúng tỉ lệ.
+\end{itemize}
+
+\subsubsection*{2. Các biến sử dụng}
+
+\begin{itemize}
+  \item \textbf{mutex}: Semaphore nhị phân (1) để đảm bảo truy cập đồng thời an toàn cho các biến đếm.
+  \item \textbf{oxygen, hydrogen}: Các biến đếm số luồng đang chờ.
+  \item \textbf{barrier}: Hàng rào để đảm bảo cả ba luồng gọi \texttt{bond()} trước khi các luồng tiếp theo được ghép.
+  \item \textbf{oxyQueue, hydroQueue}: Semaphore để luồng oxy và hydro chờ khi chưa đủ bộ ba.
+\end{itemize}
+
+\subsubsection*{3. Thuật toán cho luồng Oxy}
+
+\begin{lstlisting}
+mutex.wait();
+oxygen += 1;
+if (hydrogen >= 2) {
+    hydroQueue.signal(2);
+    hydrogen -= 2;
+    oxyQueue.signal();
+    oxygen -= 1;
+} else {
+    mutex.signal();
+}
+
+oxyQueue.wait();
+bond();
+barrier.wait();
+mutex.signal();
+\end{lstlisting}
+
+\subsubsection*{4. Thuật toán cho luồng Hydro}
+
+\begin{lstlisting}
+mutex.wait();
+hydrogen += 1;
+if (hydrogen >= 2 and oxygen >= 1) {
+    hydroQueue.signal(2);
+    hydrogen -= 2;
+    oxyQueue.signal();
+    oxygen -= 1;
+} else {
+    mutex.signal();
+}
+
+hydroQueue.wait();
+bond();
+barrier.wait();
+\end{lstlisting}
+
+\subsubsection*{5. Giải thích hoạt động}
+
+\begin{itemize}
+  \item Mỗi luồng khi đến sẽ cập nhật biến đếm và kiểm tra có thể hình thành một phân tử hay chưa.
+  \item Nếu đủ (1 oxy + 2 hydro), semaphore sẽ đánh thức ba luồng tương ứng để chúng cùng gọi \texttt{bond()}.
+  \item Tất cả các luồng sẽ chờ ở \textbf{barrier} để đảm bảo bộ ba đồng bộ với nhau.
+  \item \textbf{Luồng oxy} chịu trách nhiệm giải phóng \texttt{mutex} sau khi hàng rào mở, đảm bảo rằng mỗi nhóm hoàn thành trước khi nhóm sau bắt đầu.
+  \item Việc chỉ có duy nhất một luồng oxy trong mỗi nhóm giúp tránh việc nhiều luồng cùng giải phóng \texttt{mutex}.
+\end{itemize}
+\newpage
+\subsection{Vấn đề qua sông (River crossing problem)}
+
+\subsubsection*{1. Mô tả bài toán}
+
+Bài toán yêu cầu đồng bộ các luồng \textbf{hacker} và \textbf{serf} (nông dân) để họ có thể cùng nhau qua sông. Chiếc thuyền có thể chở chính xác 4 người, không nhiều hơn và cũng không ít hơn. Để đảm bảo an toàn, không thể để một hacker đi cùng ba serf, hoặc một serf đi cùng ba hacker. Các kết hợp còn lại đều an toàn.
+
+Mỗi khi một luồng đến, nó cần gọi hàm \texttt{board}. Chúng ta cần đảm bảo rằng tất cả bốn luồng từ mỗi chuyến thuyền đều gọi \texttt{board} trước khi bất kỳ luồng nào từ chuyến thuyền tiếp theo có thể được xử lý.
+
+Sau khi tất cả bốn luồng đã gọi \texttt{board}, chỉ một trong số chúng cần gọi hàm \texttt{rowBoat} để chỉ định luồng đó sẽ cầm mái chèo. Không quan trọng luồng nào gọi hàm này, miễn là có một luồng thực hiện.
+
+Chúng ta chỉ quan tâm đến luồng di chuyển theo một hướng cụ thể.
+
+\subsubsection*{2. Các biến sử dụng}
+
+\begin{itemize}
+  \item \textbf{mutex}: Semaphore nhị phân (1) để đảm bảo việc truy cập đồng thời an toàn cho các biến đếm.
+  \item \textbf{hackers, serfs}: Các biến đếm số luồng hacker và serf đang chờ.
+  \item \textbf{barrier}: Hàng rào để đảm bảo tất cả bốn luồng gọi \texttt{board()} trước khi một trong chúng thực hiện \texttt{rowBoat()}.
+  \item \textbf{hackerQueue, serfQueue}: Semaphore để điều khiển số lượng hacker và serf có thể qua sông đồng thời.
+  \item \textbf{isCaptain}: Biến boolean cho biết luồng nào là thuyền trưởng (gọi hàm \texttt{rowBoat}).
+\end{itemize}
+
+\subsubsection*{3. Thuật toán}
+
+\begin{lstlisting}
+mutex.wait();
+hackers += 1;
+if (hackers == 4) {
+    hackerQueue.signal(4);
+    hackers = 0;
+    isCaptain = True;
+} else if (hackers == 2 and serfs >= 2) {
+    hackerQueue.signal(2);
+    serfQueue.signal(2);
+    serfs -= 2;
+    hackers = 0;
+    isCaptain = True;
+} else {
+    mutex.signal();
+}
+
+hackerQueue.wait();
+board();
+barrier.wait();
+
+if (isCaptain) {
+    rowBoat();
+}
+mutex.signal();
+\end{lstlisting}
+
+
+\subsubsection*{4. Giải thích hoạt động}
+
+\begin{itemize}
+  \item Mỗi luồng khi đến sẽ cập nhật biến đếm và kiểm tra xem có thể hình thành một nhóm đủ bốn người không.
+  \item Nếu có đủ hacker và serf, semaphore sẽ đánh thức các luồng tương ứng để chúng cùng gọi \texttt{board()}.
+  \item Các luồng sẽ chờ ở \textbf{barrier} cho đến khi tất cả các luồng trong nhóm cùng gọi \texttt{board()}.
+  \item \textbf{Luồng thuyền trưởng} sẽ gọi \texttt{rowBoat} và giải phóng \texttt{mutex} sau khi thuyền đã rời bến.
+  \item Hàng rào \textbf{barrier} giúp đồng bộ tất cả các luồng trong nhóm trước khi bắt đầu di chuyển.
+  \item Biến \textbf{isCaptain} xác định luồng nào sẽ gọi \texttt{rowBoat}.
+\end{itemize}
+\newpage
+% \subsection{Bài toán Tàu lượn siêu tốc (Roller Coaster Problem)}
+
+% \subsubsection*{1. Mô tả bài toán}
+
+% Giả sử có $n$ luồng hành khách và một luồng đại diện cho chiếc xe tàu lượn. Hành khách liên tục xếp hàng để được lên xe và đi một vòng. Mỗi xe chỉ chở được $C$ hành khách tại một thời điểm ($C < n$). Xe chỉ được khởi hành khi đã đầy chỗ.
+
+% \textbf{Các ràng buộc đồng bộ}:
+
+% \begin{itemize}
+%     \item Hành khách chỉ được gọi \texttt{board()} sau khi xe gọi \texttt{load()}.
+%     \item Xe chỉ được khởi hành sau khi đủ $C$ hành khách đã gọi \texttt{board()}.
+%     \item Hành khách chỉ được gọi \texttt{unboard()} sau khi xe gọi \texttt{unload()}.
+% \end{itemize}
+
+% Mục tiêu là viết mã đảm bảo các ràng buộc trên được giữ đúng.
+
+% \subsubsection*{2. Các biến sử dụng}
+
+% \begin{itemize}
+%     \item \textbf{mutex, mutex2}: Semaphore nhị phân bảo vệ biến đếm hành khách lên/xuống.
+%     \item \textbf{boarders, unboarders}: Biến đếm số hành khách đã lên/xuống.
+%     \item \textbf{boardQueue, unboardQueue}: Semaphore cho phép hành khách chờ lên/xuống xe.
+%     \item \textbf{allAboard, allAshore}: Semaphore cho xe chờ đến khi tất cả hành khách đã lên/xuống.
+% \end{itemize}
+
+% \subsubsection*{3. Thuật toán cho xe tàu lượn (1 xe)}
+
+% \begin{lstlisting}
+% load();
+% boardQueue.signal(C);
+% allAboard.wait();
+
+% run();
+
+% unload();
+% unboardQueue.signal(C);
+% allAshore.wait();
+% \end{lstlisting}
+
+
+% \subsubsection*{4. Thuật toán cho hành khách}
+
+% \begin{lstlisting}
+% boardQueue.wait();
+% board();
+
+% mutex.wait();
+% boarders += 1;
+% if (boarders == C) {
+%     allAboard.signal();
+%     boarders = 0;
+% }
+% mutex.signal();
+
+% unboardQueue.wait();
+% unboard();
+
+% mutex2.wait();
+% unboarders += 1;
+% if (unboarders == C) {
+%     allAshore.signal();
+%     unboarders = 0;
+% }
+% mutex2.signal();
+% \end{lstlisting}
+
+
+% \subsubsection*{5.1 Mở rộng bài toán: Nhiều xe chạy đồng thời}
+
+% Giả sử có $m$ xe. Các ràng buộc bổ sung:
+
+% \begin{itemize}
+%     \item Chỉ một xe được phép cho hành khách lên tại một thời điểm.
+%     \item Nhiều xe có thể chạy đồng thời trên đường ray.
+%     \item Xe phải được dỡ hành khách theo đúng thứ tự đã lên (tuần tự).
+% \end{itemize}
+
+% Sử dụng 2 danh sách semaphore: \texttt{loadingArea[]} và \texttt{unloadingArea[]} để điều phối thứ tự các xe.
+
+% \textbf{Hàm tính xe tiếp theo}:
+% \begin{lstlisting}
+% def next(i):
+%     return (i + 1) % m
+% \end{lstlisting}
+
+% \subsubsection*{5.2 Thuật toán cho xe (nhiều xe)}
+
+% \begin{lstlisting}
+% loadingArea[i].wait();
+% load();
+% boardQueue.signal(C);
+% allAboard.wait();
+% loadingArea[next(i)].signal();
+
+% run();
+
+% unloadingArea[i].wait();
+% unload();
+% unboardQueue.signal(C);
+% allAshore.wait();
+% unloadingArea[next(i)].signal();
+% \end{lstlisting}
+
+
+% \subsubsection*{5.3 Thuật toán cho hành khách (giữ nguyên)}
+
+% \begin{lstlisting}
+% boardQueue.wait();
+% board();
+
+% mutex.wait();
+% boarders += 1;
+% if (boarders == C) {
+%     allAboard.signal();
+%     boarders = 0;
+% }
+% mutex.signal();
+
+% unboardQueue.wait();
+% unboard();
+
+% mutex2.wait();
+% unboarders += 1;
+% if (unboarders == C) {
+%     allAshore.signal();
+%     unboarders = 0;
+% }
+% mutex2.signal();
+% \end{lstlisting}
+
+\subsection{Bài toán Tàu lượn siêu tốc (Roller Coaster Problem)}
+
+\subsubsection*{1. Mô tả bài toán}
+
+Giả sử có $n$ luồng hành khách và một luồng đại diện cho chiếc xe tàu lượn. Hành khách liên tục xếp hàng để được lên xe và đi một vòng. Mỗi xe chỉ chở được đúng $C$ hành khách tại một thời điểm ($C < n$). Xe chỉ được khởi hành khi đã đầy chỗ.
+
+\textbf{Các ràng buộc đồng bộ}:
+\begin{itemize}
+    \item Hành khách chỉ được gọi \texttt{board()} sau khi xe gọi \texttt{load()}.
+    \item Xe chỉ được khởi hành sau khi đủ $C$ hành khách đã gọi \texttt{board()}.
+    \item Hành khách chỉ được gọi \texttt{unboard()} sau khi xe gọi \texttt{unload()}.
+\end{itemize}
+
+Mục tiêu là viết mã đồng bộ đảm bảo các ràng buộc trên được giữ đúng.
+
+\subsubsection*{2. Các biến sử dụng}
+
+\begin{itemize}
+    \item \textbf{mutex, mutex2}: Semaphore nhị phân dùng để bảo vệ truy cập tới biến đếm số hành khách lên và xuống.
+    \item \textbf{boarders, unboarders}: Biến đếm số hành khách đã lên hoặc đã xuống xe.
+    \item \textbf{boardQueue, unboardQueue}: Semaphore để điều phối hành khách chờ lên hoặc xuống xe.
+    \item \textbf{allAboard, allAshore}: Semaphore để xe chờ cho đến khi tất cả hành khách đã lên hoặc đã xuống.
+\end{itemize}
+
+\subsubsection*{3. Thuật toán cho xe (1 xe)}
+
+\begin{lstlisting}
+load();
+boardQueue.signal(C);
+allAboard.wait();
+
+run();
+
+unload();
+unboardQueue.signal(C);
+allAshore.wait();
+\end{lstlisting}
+
+\subsubsection*{4. Thuật toán cho hành khách}
+
+\begin{lstlisting}
+boardQueue.wait();
+board();
+
+mutex.wait();
+boarders += 1;
+if (boarders == C) {
+    allAboard.signal();
+    boarders = 0;
+}
+mutex.signal();
+
+unboardQueue.wait();
+unboard();
+
+mutex2.wait();
+unboarders += 1;
+if (unboarders == C) {
+    allAshore.signal();
+    unboarders = 0;
+}
+mutex2.signal();
+\end{lstlisting}
+
+\subsubsection*{5. Giải thích hoạt động}
+
+\begin{itemize}
+    \item Xe gọi \texttt{load()} để bắt đầu quy trình đón hành khách. Sau đó, nó mở semaphore \texttt{boardQueue} $C$ lần để cho phép $C$ hành khách được lên xe.
+    \item Mỗi hành khách khi được phép lên xe sẽ gọi \texttt{board()}, sau đó tăng biến \texttt{boarders}.
+    \item Hành khách cuối cùng (người thứ $C$) sẽ gửi tín hiệu qua semaphore \texttt{allAboard} để thông báo cho xe rằng tất cả hành khách đã lên xe.
+    \item Xe bắt đầu chạy (\texttt{run()}) sau đó dừng lại và gọi \texttt{unload()} để chuẩn bị cho hành khách xuống.
+    \item Xe mở semaphore \texttt{unboardQueue} $C$ lần để cho phép $C$ hành khách xuống xe.
+    \item Tương tự như khi lên xe, hành khách gọi \texttt{unboard()} và người cuối cùng sẽ báo hiệu cho xe bằng \texttt{allAshore}.
+    \item Xe chỉ tiếp tục quy trình sau khi tất cả hành khách đã xuống.
+\end{itemize}
+
+\subsubsection*{6.1 Mở rộng: Nhiều xe chạy đồng thời}
+
+Giả sử có $m$ xe chạy đồng thời. Một số ràng buộc mới được đặt ra:
+
+\begin{itemize}
+    \item Chỉ một xe được phép cho hành khách lên tại một thời điểm (tránh xung đột).
+    \item Nhiều xe có thể chạy cùng lúc trên đường ray.
+    \item Việc hành khách lên và xuống xe phải diễn ra theo thứ tự tuần tự giữa các xe.
+\end{itemize}
+
+Sử dụng 2 mảng semaphore \texttt{loadingArea[]} và \texttt{unloadingArea[]} để điều phối thứ tự xe hoạt động.
+
+\textbf{Hàm xác định xe tiếp theo:}
+\begin{lstlisting}
+int next(int i){
+    return (i + 1) % m;
+}
+    
+\end{lstlisting}
+
+\subsubsection*{6.2 Thuật toán cho xe (nhiều xe)}
+
+\begin{lstlisting}
+loadingArea[i].wait();
+load();
+boardQueue.signal(C);
+allAboard.wait();
+loadingArea[next(i)].signal();
+
+run();
+
+unloadingArea[i].wait();
+unload();
+unboardQueue.signal(C);
+allAshore.wait();
+unloadingArea[next(i)].signal();
+\end{lstlisting}
+
+\subsubsection*{6.3 Thuật toán cho hành khách (giữ nguyên)}
+
+\begin{lstlisting}
+boardQueue.wait();
+board();
+
+mutex.wait();
+boarders += 1;
+if (boarders == C) {
+    allAboard.signal();
+    boarders = 0;
+}
+mutex.signal();
+
+unboardQueue.wait();
+unboard();
+
+mutex2.wait();
+unboarders += 1;
+if (unboarders == C) {
+    allAshore.signal();
+    unboarders = 0;
+}
+mutex2.signal();
+\end{lstlisting}
+
+\subsubsection*{6.4 Giải thích hoạt động (nhiều xe)}
+
+\begin{itemize}
+    \item Xe thứ $i$ phải chờ tại \texttt{loadingArea[i]} trước khi có quyền cho hành khách lên xe.
+    \item Sau khi đã cho $C$ hành khách lên xe và nhận tín hiệu \texttt{allAboard}, xe kích hoạt \texttt{loadingArea[next(i)]} để cho xe kế tiếp hoạt động.
+    \item Quá trình xuống xe diễn ra tương tự, được điều phối qua \texttt{unloadingArea[i]} và tiếp nối bởi \texttt{unloadingArea[next(i)]}.
+    \item Điều này giúp đảm bảo việc lên và xuống xe diễn ra tuần tự, tránh xung đột trong việc sử dụng các semaphore chung như \texttt{boardQueue} và \texttt{unboardQueue}.
+\end{itemize}
+
+
+\newpage
+\subsection{Bài toán Người hút thuốc lá (The Cigarette Smokers Problem)}
+
+\subsubsection*{1. Mô tả bài toán}
+
+Đây là một bài toán đồng bộ kinh điển, mô phỏng sự phối hợp giữa một tiến trình trung tâm (agent) và ba tiến trình khác (người hút thuốc), với bối cảnh như sau:
+
+\begin{itemize}
+\item Một agent mỗi lần đặt ngẫu nhiên hai trong ba loại nguyên liệu sau lên bàn: \textit{thuốc lá (tobacco)}, \textit{giấy (paper)}, và \textit{diêm (match)}.
+\item Có ba người hút thuốc, mỗi người sở hữu vô hạn một loại nguyên liệu:
+\begin{itemize}
+\item Người thứ nhất có sẵn thuốc lá.
+\item Người thứ hai có sẵn giấy.
+\item Người thứ ba có sẵn diêm.
+\end{itemize}
+\item Người hút thuốc chỉ có thể hút nếu lấy được hai nguyên liệu còn lại từ bàn.
+\item Sau khi hút xong, người đó sẽ thông báo cho agent để tiếp tục cấp phát nguyên liệu mới.
+\end{itemize}
+
+\subsubsection*{2. Yêu cầu ràng buộc}
+\begin{itemize}
+\item Chỉ đúng người hút thuốc có đủ nguyên liệu mới được phép hành động.
+\item Tránh việc nhiều người cùng tranh nguyên liệu không phù hợp (gây sai sót hoặc deadlock).
+\item Giữ nguyên code của agent (tức là agent chỉ đơn thuần cấp phát hai nguyên liệu ngẫu nhiên).
+\end{itemize}
+
+\subsubsection*{3. Các biến sử dụng}
+
+\begin{itemize}
+\item \textbf{agentSem}: Semaphore dùng để đồng bộ giữa agent và smokers. Agent chỉ đặt nguyên liệu khi được phép.
+\item \textbf{tobacco}, \textbf{paper}, \textbf{match}: Semaphore báo hiệu nguyên liệu được đặt lên bàn.
+\item \textbf{mutex}: Đảm bảo độc quyền khi pusher truy cập vào trạng thái bàn.
+\item \textbf{isTobacco}, \textbf{isPaper}, \textbf{isMatch}: Biến boolean đại diện cho trạng thái bàn hiện có nguyên liệu gì.
+\item \textbf{smokerWithTobacco}, \textbf{smokerWithPaper}, \textbf{smokerWithMatch}: Semaphore đánh thức đúng người hút thuốc tương ứng.
+\end{itemize}
+
+\subsubsection*{4. Thuật toán cho agent}
+
+Mỗi agent chỉ đơn thuần đặt hai nguyên liệu lên bàn. Ví dụ:
+
+\begin{lstlisting}
+agentSem.wait();
+tobacco.signal();
+paper.signal();
+\end{lstlisting}
+
+Các agent khác tương tự với các tổ hợp còn lại: (paper, match) và (tobacco, match).
+
+\subsubsection*{5. Thuật toán pusher (trung gian)}
+
+Mỗi nguyên liệu có một pusher riêng để ghi nhận trạng thái nguyên liệu và đánh thức đúng người hút thuốc.
+
+Ví dụ, với pusher thuốc lá:
+\begin{lstlisting}
+tobacco.wait();
+mutex.wait();
+if (isPaper) {
+isPaper = false;
+smokerWithMatch.signal();
+} else if (isMatch) {
+isMatch = false;
+smokerWithPaper.signal();
+} else {
+isTobacco = true;
+}
+mutex.signal();
+\end{lstlisting}
+
+Tương tự với pusher của giấy và diêm.
+
+\subsubsection*{6. Thuật toán cho smoker}
+
+Khi được đánh thức bởi pusher, người hút thuốc sẽ thực hiện:
+\begin{lstlisting}
+smokerWithMatch.wait();
+makeCigarette();
+agentSem.signal();
+smoke();
+\end{lstlisting}
+
+Tương tự cho smoker có giấy và thuốc lá.
+
+\subsubsection*{7. Giải thích hoạt động}
+
+\begin{itemize}
+\item Mỗi lần agent đặt hai nguyên liệu, đúng một pusher sẽ xử lý và xác định loại người hút thuốc có thể hành động.
+\item Biến trạng thái \texttt{isTobacco}, \texttt{isPaper}, \texttt{isMatch} đảm bảo kiểm soát trạng thái bàn hiện tại.
+\item Cơ chế semaphore và mutex giúp đảm bảo đồng bộ hóa, tránh deadlock và đánh thức sai tiến trình.
+\end{itemize}
+
+% \subsubsection*{8. Phân loại các phiên bản của bài toán}
+
+% \begin{description}[style=nextline]
+% \item[Phiên bản không thể giải:] Không được sửa code của agent, không cho dùng biểu thức điều kiện hoặc mảng semaphore → không thể xác định đúng người hút thuốc cần đánh thức.
+% \item[Phiên bản thú vị:] Dùng semaphore trung gian và biểu thức điều kiện để xác định đúng smoker phù hợp → đúng bản chất của bài toán đồng bộ.
+% \item[Phiên bản tầm thường:] Cho phép agent biết trước người cần đánh thức → đánh mất ý nghĩa bài toán đồng bộ.
+% \end{description}
+

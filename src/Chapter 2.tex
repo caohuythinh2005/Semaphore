@@ -1,0 +1,49 @@
+\section{Khái niệm cơ bản}
+
+Đèn báo là biến tài nguyên $S$, khởi tạo bằng khả năng phục vụ của tài nguyên nó điều độ. Đèn báo $S$ được khởi tạo như sau:
+
+\begin{lstlisting}
+struct Semaphore {
+    int value;
+    struct process* Ptr;
+};
+\end{lstlisting}
+
+Chỉ có thể thay đổi giá trị bởi hai thao tác cơ bản là \texttt{wait(S)} và \texttt{signal(S)}.
+
+\subsection*{Thao tác \texttt{wait(S)}}
+
+\begin{lstlisting}
+void wait(Semaphore S) {
+    S.value--;
+    if (S.value < 0) {
+        Add process to S.Ptr;
+        block();
+    }
+}
+\end{lstlisting}
+
+\subsection*{Thao tác \texttt{signal(S)}}
+
+\begin{lstlisting}
+void signal(Semaphore S) {
+    S.value++;
+    if (S.value <= 0) {
+        Pull out process P from S.Ptr;
+        wakeup(P);
+    }
+}
+\end{lstlisting}
+
+Ngoài ra, chúng ta còn kết hợp thêm hai thao tác khác là \texttt{block()} và \texttt{wakeup(P)}:
+
+\begin{enumerate}
+    \item \texttt{block()}: Ngừng tạm thời tiến trình đang thực hiện.
+    \item \texttt{wakeup(P)}: Thực hiện tiếp tiến trình P dừng bởi lệnh \texttt{block()}.
+\end{enumerate}
+
+% \subsection{Khái niệm A}
+% Giải thích A...
+
+% \subsection{Khái niệm B}
+% Giải thích B...
